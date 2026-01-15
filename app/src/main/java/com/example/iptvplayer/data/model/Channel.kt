@@ -2,16 +2,17 @@ package com.example.iptvplayer.data.model
 
 import androidx.compose.runtime.Immutable
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
-@Entity(tableName = "channels")
+@Entity(tableName = "channels",
+    indices = [Index(value = ["url"], unique = true)])
 @Immutable
 @Serializable
 data class Channel(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-
     val name: String,
     val url: String,
     val logoUrl: String? = null,
