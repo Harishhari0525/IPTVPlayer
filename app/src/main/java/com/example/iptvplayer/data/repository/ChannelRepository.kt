@@ -159,4 +159,11 @@ class ChannelRepository(context: Context) {
     suspend fun deleteChannel(channelId: Long) {
         dao.deleteChannelById(channelId)
     }
+
+    suspend fun getChannelsSync(): List<Channel> {
+        return withContext(Dispatchers.IO) {
+            dao.getAllChannelsSync() // You already created this for the Logo fix!
+        }
+    }
+
 }

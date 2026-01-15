@@ -19,11 +19,13 @@ ksp = "2.2.21-2.0.4"
 coil = "3.3.0"
 lifecycle = "2.10.0"
 media3DatasourceOkhttp = "1.9.0"
+workRuntimeKtx = "2.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3Ui" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
 coil-svg = { module = "io.coil-kt:coil-svg", version.ref = "coilSvg" }
 coil3-coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coilSvgVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

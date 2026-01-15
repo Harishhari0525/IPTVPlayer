@@ -1,6 +1,7 @@
 package com.example.iptvplayer.ui.screens
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -88,23 +89,6 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             Column {
-
-                if (scanProgress != null) {
-                    AlertDialog(
-                        onDismissRequest = {}, // Prevent dismissing while scanning
-                        title = { Text("Cleaning Playlist") },
-                        text = {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator()
-                                Spacer(Modifier.height(16.dp))
-                                Text(scanProgress ?: "Please wait...")
-                                Text("Do not close the app.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                            }
-                        },
-                        confirmButton = {}
-                    )
-                }
-
                 if (isSearching) {
                     TopAppBar(
                         title = {
@@ -163,8 +147,9 @@ fun HomeScreen(
                                     DropdownMenuItem(
                                         text = { Text("Remove Dead Channels") },
                                         onClick = {
-                                            viewModel.removeDeadChannels()
+                                            viewModel.removeDeadChannels(context)
                                             showMenu = false
+                                            Toast.makeText(context, "Scanning started in background.", Toast.LENGTH_SHORT).show()
                                         },
                                         leadingIcon = { Icon(Icons.Default.PortableWifiOff, null, tint = Color.Red) }
                                     )
@@ -210,7 +195,9 @@ fun HomeScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding),contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding),contentAlignment = Alignment.Center) {
             if (isLoading && scanProgress == null) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
@@ -342,7 +329,9 @@ fun ChannelItem(channel: Channel, onToggleFavorite: (Channel) -> Unit, onClick: 
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().background(Color.Black),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black),
                     loading = {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)

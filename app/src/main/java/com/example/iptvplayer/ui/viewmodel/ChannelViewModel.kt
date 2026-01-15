@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.iptvplayer.data.model.Channel
 import com.example.iptvplayer.data.repository.ChannelRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,41 +75,13 @@ class ChannelViewModel(private val repository: ChannelRepository) : ViewModel() 
         _searchQuery.value = query
     }
 
-    fun removeDeadChannels() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _scanProgress.value = "Starting Scan..."
+    fun removeDeadChannels(context: Context) {
+        val workManager = WorkManager.getInstance(context)
+        val request = OneTimeWorkRequestBuilder<com.example.iptvplayer.utils.CleanupWorker>()
+            .addTag("cleanup_job")
+            .build()
 
-            val currentList = _allChannels.value
-
-            if (currentList.isEmpty()) {
-                _scanProgress.value = null
-                _isLoading.value = false
-                return@launch
-            }
-
-            val total = currentList.size
-            var deletedCount = 0
-            for ((index, channel) in currentList.withIndex()) {
-
-                if (index % 5 == 0) {
-                    _scanProgress.value = "Checking ${index + 1} / $total"
-                }
-
-                // suspended call to network
-                val isAlive = repository.isChannelAlive(channel.url)
-
-                if (!isAlive) {
-                    // suspended call to DB
-                    repository.deleteChannel(channel.id)
-                    deletedCount++
-                }
-            }
-
-            // 3. Finish
-            _scanProgress.value = null
-            _isLoading.value = false
-        }
+        workManager.enqueue(request)
     }
 
     fun toggleFavorite(channel: Channel) {

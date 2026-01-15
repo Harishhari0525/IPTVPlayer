@@ -81,6 +81,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.media3.datasource.okhttp)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
