@@ -17,24 +17,6 @@ import kotlinx.coroutines.launch
 
 class ChannelViewModel(private val repository: ChannelRepository) : ViewModel() {
 
-
-    init {
-        val savedUrl = repository.getSavedPlaylistUrl()
-        if (!savedUrl.isNullOrBlank()) {
-            viewModelScope.launch {
-                _isLoading.value = true
-                try {
-                    // Refresh data from the saved URL
-                    repository.loadPlaylistFromUrl(savedUrl)
-                } catch (e: Exception) {
-                    e.printStackTrace() // Update failed (offline?), keep old data
-                } finally {
-                    _isLoading.value = false
-                }
-            }
-        }
-    }
-
     private val _allChannels: StateFlow<List<Channel>> = repository.allChannels
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -148,6 +130,7 @@ class ChannelViewModel(private val repository: ChannelRepository) : ViewModel() 
             try {
                 context.contentResolver.openInputStream(uri)?.use { stream ->
                     repository.loadPlaylist(stream)
+                    repository.fetchAndMapLogos()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -162,6 +145,9 @@ class ChannelViewModel(private val repository: ChannelRepository) : ViewModel() 
             _isLoading.value = true
             try {
                 repository.loadPlaylistFromUrl(url)
+
+                repository.fetchAndMapLogos()
+
                 repository.savePlaylistUrl(url)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -175,6 +161,23 @@ class ChannelViewModel(private val repository: ChannelRepository) : ViewModel() 
     fun deleteAll() = viewModelScope.launch { repository.deleteAll() }
     fun clearHistory() = viewModelScope.launch { repository.clearHistory() }
     fun clearFavorites() = viewModelScope.launch { repository.clearFavorites() }
+
+    init {
+        val savedUrl = repository.getSavedPlaylistUrl()
+        if (!savedUrl.isNullOrBlank()) {
+            viewModelScope.launch {
+                _isLoading.value = true
+                try {
+                    repository.loadPlaylistFromUrl(savedUrl)
+                } catch (e: Exception) {
+                    e.printStackTrace() // Update failed (offline?), keep old data
+                } finally {
+                    _isLoading.value = false
+                }
+            }
+        }
+    }
+
 }
 
 class ChannelViewModelFactory(private val context: Context) : ViewModelProvider.Factory {

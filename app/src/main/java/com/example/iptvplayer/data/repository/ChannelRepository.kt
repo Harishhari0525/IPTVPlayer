@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import androidx.core.content.edit
+import org.json.JSONArray
+import java.net.URL
 
 class ChannelRepository(context: Context) {
 
@@ -43,14 +45,13 @@ class ChannelRepository(context: Context) {
     suspend fun loadPlaylist(inputStream: InputStream) {
         withContext(Dispatchers.IO) {
             val parsedChannels = M3UParser.parse(inputStream)
-            // Removed clearAll() to allow appending new files instead of overwriting
             dao.insertAll(parsedChannels)
         }
     }
 
     suspend fun loadPlaylistFromUrl(urlString: String) {
         withContext(Dispatchers.IO) {
-            val stream = java.net.URL(urlString).openStream()
+            val stream = URL(urlString).openStream()
             val parsedChannels = M3UParser.parse(stream)
             dao.insertAll(parsedChannels)
         }
@@ -86,6 +87,50 @@ class ChannelRepository(context: Context) {
         return prefs.getString("saved_playlist_url", null)
     }
 
+    suspend fun fetchAndMapLogos() {
+        withContext(Dispatchers.IO) {
+            try {
+                // 1. Download the Dedicated Logos File
+                // This file is strictly for mapping ID -> Logo URL
+                val jsonString = URL("https://iptv-org.github.io/api/logos.json").readText()
+                val jsonArray = JSONArray(jsonString)
+                val logoMap = mutableMapOf<String, String>()
+
+                // 2. Parse (Map "channel" -> "url")
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    if (obj.has("channel") && obj.has("url")) {
+                        val id = obj.getString("channel") // e.g. "002RadioTV.do"
+                        val url = obj.getString("url")
+                        if (url.isNotBlank()) {
+                            logoMap[id] = url
+                        }
+                    }
+                }
+
+                // 3. Update Database
+                val currentChannels = dao.getAllChannelsSync()
+                val updates = mutableListOf<Channel>()
+
+                for (channel in currentChannels) {
+                    if (channel.logoUrl.isNullOrBlank() && channel.tvgId.isNotBlank()) {
+                        val newLogo = logoMap[channel.tvgId]
+                        if (newLogo != null) {
+                            updates.add(channel.copy(logoUrl = newLogo))
+                        }
+                    }
+                }
+
+                if (updates.isNotEmpty()) {
+                    dao.updateAll(updates)
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     suspend fun isChannelAlive(url: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -106,7 +151,7 @@ class ChannelRepository(context: Context) {
                     response.isSuccessful // Returns true if 200 OK
                 }
             } catch (_: Exception) {
-                false // Connection failed, timeout, or error -> Dead
+                false
             }
         }
     }

@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.svg.SvgDecoder
 import com.example.iptvplayer.data.model.Channel
 import com.example.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.example.iptvplayer.ui.viewmodel.ChannelViewModelFactory
@@ -209,8 +210,8 @@ fun HomeScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding),contentAlignment = Alignment.Center) {
+            if (isLoading && scanProgress == null) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 val baseList = when (selectedTabIndex) {
@@ -336,6 +337,7 @@ fun ChannelItem(channel: Channel, onToggleFavorite: (Channel) -> Unit, onClick: 
                 SubcomposeAsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(channel.logoUrl)
+                        .decoderFactory(SvgDecoder.Factory())
                         .crossfade(true)
                         .build(),
                     contentDescription = null,

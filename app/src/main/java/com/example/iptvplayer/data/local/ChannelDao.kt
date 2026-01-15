@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.iptvplayer.data.model.Channel
 import kotlinx.coroutines.flow.Flow
 
@@ -39,4 +40,10 @@ interface ChannelDao {
 
     @Query("DELETE FROM channels WHERE id = :id")
     suspend fun deleteChannelById(id: Long)
+
+    @Query("SELECT * FROM channels")
+    fun getAllChannelsSync(): List<Channel>
+
+    @Update
+    suspend fun updateAll(channels: List<Channel>)
 }

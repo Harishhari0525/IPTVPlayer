@@ -1,60 +1,55 @@
 package com.example.iptvplayer.utils
 
 import com.example.iptvplayer.data.model.Channel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import java.io.BufferedReader
 import java.io.InputStream
+import java.io.InputStreamReader
 
 object M3UParser {
-
-    private val logoRegex = Regex("""tvg-logo="([^"]*)"""")
-    private val groupRegex = Regex("""group-title="([^"]*)"""")
-    private val nameRegex = Regex(""",([^,]*)$""")
-
-    /**
-     * Parses an M3U stream efficiently using Kotlin Sequences.
-     * This avoids loading the entire file into memory.
-     */
-    suspend fun parse(inputStream: InputStream): List<Channel> = withContext(Dispatchers.IO) {
+    fun parse(inputStream: InputStream): List<Channel> {
         val channels = mutableListOf<Channel>()
+        val reader = BufferedReader(InputStreamReader(inputStream))
 
-        // We use 'use' to ensure the reader is strictly closed after execution
-        inputStream.bufferedReader().use { reader ->
-            var currentLogo: String? = null
-            var currentGroup: String? = null
-            var currentName: String? = null
+        var currentName = ""
+        var currentLogo = ""
+        var currentGroup = ""
+        var currentTvgId = "" // <--- NEW VAR
 
-            reader.forEachLine { line ->
-                val trimmed = line.trim()
+        reader.forEachLine { line ->
+            val trimmed = line.trim()
 
-                when {
-                    trimmed.startsWith("#EXTINF:") -> {
-                        // Extract metadata
-                        currentLogo = logoRegex.find(trimmed)?.groupValues?.get(1)
-                        currentGroup = groupRegex.find(trimmed)?.groupValues?.get(1) ?: "General"
-                        currentName = nameRegex.find(trimmed)?.groupValues?.get(1)?.trim()
-                            ?: trimmed.substringAfterLast(",", "Unknown Channel")
-                    }
-                    !trimmed.startsWith("#") && trimmed.isNotEmpty() -> {
-                        // This is the URL line. Build the object.
-                        if (currentName != null) {
-                            channels.add(
-                                Channel(
-                                    name = currentName!!,
-                                    url = trimmed,
-                                    logoUrl = currentLogo,
-                                    group = currentGroup!!
-                                )
-                            )
-                        }
-                        // Reset temporary vars
-                        currentName = null
-                        currentLogo = null
-                        currentGroup = null
-                    }
+            if (trimmed.startsWith("#EXTINF:")) {
+                // 1. Extract Logo
+                currentLogo = Regex("""tvg-logo="([^"]*)"""").find(trimmed)?.groupValues?.get(1) ?: ""
+
+                // 2. Extract Group
+                currentGroup = Regex("""group-title="([^"]*)"""").find(trimmed)?.groupValues?.get(1) ?: "General"
+
+                // 3. Extract TVG-ID (Crucial for Logo Lookup)
+                currentTvgId = Regex("""tvg-id="([^"]*)"""").find(trimmed)?.groupValues?.get(1) ?: ""
+
+                // 4. Extract Name
+                currentName = trimmed.substringAfterLast(",", "Unknown Channel").trim()
+            }
+            else if (trimmed.isNotBlank() && !trimmed.startsWith("#")) {
+                if (currentName.isNotBlank()) {
+                    channels.add(
+                        Channel(
+                            name = currentName,
+                            url = trimmed,
+                            logoUrl = currentLogo,
+                            group = currentGroup,
+                            tvgId = currentTvgId // <--- Save it
+                        )
+                    )
+                    // Reset
+                    currentName = ""
+                    currentLogo = ""
+                    currentGroup = ""
+                    currentTvgId = ""
                 }
             }
         }
-        return@withContext channels
+        return channels
     }
 }

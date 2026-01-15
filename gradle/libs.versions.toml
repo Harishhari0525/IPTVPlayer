@@ -1,5 +1,7 @@
 [versions]
 agp = "8.13.2"
+coilSvg = "2.7.0"
+coilSvgVersion = "3.3.0"
 kotlin = "2.3.0"
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -22,6 +24,8 @@ media3DatasourceOkhttp = "1.9.0"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3Ui" }
+coil-svg = { module = "io.coil-kt:coil-svg", version.ref = "coilSvg" }
+coil3-coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coilSvgVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

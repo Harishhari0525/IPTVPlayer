@@ -84,6 +84,8 @@ dependencies {
 
     implementation(libs.coil.compose)
     implementation(libs.coil.network)
+    implementation(libs.coil.svg)
+    implementation(libs.coil3.coil.svg)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -61,6 +61,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+import androidx.media3.common.MimeTypes
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import androidx.media3.common.PlaybackException
+
 
 @OptIn(UnstableApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -95,13 +101,38 @@ fun PlayerScreen(
     var currentUrl by remember { mutableStateOf(videoUrl) }
     var currentTitle by remember { mutableStateOf(channelName) }
 
+    val trackSelector = DefaultTrackSelector(context).apply {
+        setParameters(
+            buildUponParameters()
+                .setPreferredAudioMimeTypes(
+                    MimeTypes.AUDIO_AAC,
+                    MimeTypes.AUDIO_MPEG
+                )
+                .setForceHighestSupportedBitrate(true)
+                .setExceedRendererCapabilitiesIfNecessary(true)
+        )
+    }
+
+    val loadErrorPolicy = object : DefaultLoadErrorHandlingPolicy() {
+
+        override fun getRetryDelayMsFor(
+            loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo
+        ): Long {
+            return 1_000L // retry every second
+        }
+
+        override fun getMinimumLoadableRetryCount(dataType: Int): Int {
+            return Int.MAX_VALUE // never give up for live IPTV
+        }
+    }
+
     val exoPlayer = remember(context) {
         val client = OkHttpClient.Builder()
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
-            .connectTimeout(10, TimeUnit.SECONDS) // Tweak timeouts
-            .readTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS) // Tweak timeouts
+            .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
         val okHttpDataSourceFactory = OkHttpDataSource.Factory(client)
@@ -109,10 +140,13 @@ fun PlayerScreen(
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.google.com/"))
 
         ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
             .setMediaSourceFactory(
                 DefaultMediaSourceFactory(context)
                     .setDataSourceFactory(okHttpDataSourceFactory)
+                    .setLoadErrorHandlingPolicy(loadErrorPolicy)
             )
+
             .build()
             .apply {
                 playWhenReady = true
@@ -145,6 +179,16 @@ fun PlayerScreen(
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
             }
+            override fun onPlayerError(error: PlaybackException) {
+                when (error.errorCode) {
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+                    PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> {
+                        exoPlayer.prepare()
+                        exoPlayer.play()
+                    }
+                }
+            }
         }
         exoPlayer.addListener(listener)
         onDispose { exoPlayer.removeListener(listener) }
@@ -152,7 +196,14 @@ fun PlayerScreen(
 
     // Load Stream
     LaunchedEffect(currentUrl) {
-        val mediaItem = MediaItem.fromUri(currentUrl)
+        val mediaItem = MediaItem.Builder()
+            .setUri(currentUrl)
+            .setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder()
+                    .setMaxPlaybackSpeed(1.02f)
+                    .build()
+            )
+            .build()
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
         val foundChannel = filteredChannels.find { it.url == currentUrl }

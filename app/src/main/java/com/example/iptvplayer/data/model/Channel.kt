@@ -17,8 +17,7 @@ data class Channel(
     val logoUrl: String? = null,
     val group: String = "Uncategorized",
     val isFavorite: Boolean = false,
-
-    // For "Continue Watching"
     val lastPlaybackPosition: Long = 0,
-    val lastUpdated: Long = System.currentTimeMillis()
+    val lastUpdated: Long = System.currentTimeMillis(),
+    val tvgId: String = ""
 )
