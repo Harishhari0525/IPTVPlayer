@@ -2,10 +2,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
@@ -37,12 +37,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-            javaParameters.set(true)
-        }
-    }
     buildFeatures {
         compose = true
     }
@@ -52,6 +46,12 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_17)
+            javaParameters.set(true)
         }
     }
 }

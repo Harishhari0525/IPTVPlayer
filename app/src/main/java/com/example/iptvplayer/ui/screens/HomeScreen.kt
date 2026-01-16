@@ -1,43 +1,38 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.iptvplayer.ui.screens
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PortableWifiOff
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import coil3.svg.SvgDecoder
 import com.example.iptvplayer.data.model.Channel
 import com.example.iptvplayer.ui.viewmodel.ChannelViewModel
 import com.example.iptvplayer.ui.viewmodel.ChannelViewModelFactory
@@ -50,19 +45,19 @@ fun HomeScreen(
     val context = LocalContext.current
     val viewModel: ChannelViewModel = viewModel(factory = ChannelViewModelFactory(context))
 
+    // --- State ---
     val filteredChannels by viewModel.filteredChannels.collectAsState()
     val availableGroups by viewModel.groups.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
-
     val favoriteChannels by viewModel.favorites.collectAsState()
     val recentChannels by viewModel.recents.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var showImportDialog by remember { mutableStateOf(false) }
-    var showMenu by remember { mutableStateOf(false) }
     var selectedGroupIndex by remember { mutableStateOf("All") }
 
+    var showImportDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     var isSearching by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -87,148 +82,346 @@ fun HomeScreen(
     }
 
     Scaffold(
+        containerColor = Color.Black,
         topBar = {
-            Column {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                // 1. Top Bar (Title or Search)
                 if (isSearching) {
-                    TopAppBar(
-                        title = {
-                            TextField(
-                                value = searchQuery,
-                                onValueChange = {
-                                    searchQuery = it
-                                    viewModel.search(it)
-                                },
-                                placeholder = { Text("Search channels...") },
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedIndicatorColor = Color.Transparent,
-                                    unfocusedIndicatorColor = Color.Transparent
-                                ),
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                    SearchBar(
+                        query = searchQuery,
+                        onQueryChange = {
+                            searchQuery = it
+                            viewModel.search(it)
                         },
-                        windowInsets = WindowInsets.statusBars,
-                        navigationIcon = {
-                            IconButton(onClick = { isSearching = false; searchQuery = ""; viewModel.search("") }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close Search")
-                            }
+                        onClose = {
+                            isSearching = false
+                            searchQuery = ""
+                            viewModel.search("")
                         }
                     )
                 } else {
                     CenterAlignedTopAppBar(
-                        title = { Text("IPTV Player") },
+                        title = {
+                            Text(
+                                "IPTV Player",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
                         actions = {
                             IconButton(onClick = { isSearching = true }) {
-                                Icon(Icons.Default.Search, "Search")
+                                Icon(Icons.Rounded.Search, "Search")
                             }
                             Box {
                                 IconButton(onClick = { showMenu = true }) {
-                                    Icon(Icons.Default.MoreVert, "Options")
+                                    Icon(Icons.Rounded.MoreVert, "Options")
                                 }
-                                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                    DropdownMenuItem(
-                                        text = { Text("Clear History") },
-                                        onClick = { viewModel.clearHistory(); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.History, null) }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Clear Favorites") },
-                                        onClick = { viewModel.clearFavorites(); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.FavoriteBorder, null) }
-                                    )
-                                    HorizontalDivider()
-                                    DropdownMenuItem(
-                                        text = { Text("Delete All Channels") },
-                                        onClick = { viewModel.deleteAll(); showMenu = false },
-                                        leadingIcon = { Icon(Icons.Default.DeleteForever, null, tint = Color.Red) }
-                                    )
-                                    HorizontalDivider()
-                                    DropdownMenuItem(
-                                        text = { Text("Remove Dead Channels") },
-                                        onClick = {
-                                            viewModel.removeDeadChannels(context)
-                                            showMenu = false
-                                            Toast.makeText(context, "Scanning started in background.", Toast.LENGTH_SHORT).show()
-                                        },
-                                        leadingIcon = { Icon(Icons.Default.PortableWifiOff, null, tint = Color.Red) }
-                                    )
-                                }
+                                ExpressiveMenu(
+                                    expanded = showMenu,
+                                    onDismiss = { showMenu = false },
+                                    viewModel = viewModel,
+                                    context = context
+                                )
                             }
                         },
-                        windowInsets = WindowInsets.statusBars
+                        windowInsets = TopAppBarDefaults.windowInsets,
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface,
+                            actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                        )
                     )
                 }
 
-                PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
-                    Tab(selected = selectedTabIndex == 0, onClick = { selectedTabIndex = 0 }, text = { Text("All") }, icon = { Icon(Icons.Default.Tv, null) })
-                    Tab(selected = selectedTabIndex == 1, onClick = { selectedTabIndex = 1 }, text = { Text("Favorites") }, icon = { Icon(Icons.Default.Favorite, null) })
-                    Tab(selected = selectedTabIndex == 2, onClick = { selectedTabIndex = 2 }, text = { Text("Recent") }, icon = { Icon(Icons.Default.History, null) })
-                }
-                if (selectedTabIndex == 0 && !isSearching) {
-                    PrimaryScrollableTabRow(
-                        selectedTabIndex = availableGroups.indexOf(selectedGroupIndex).coerceAtLeast(0),
-                        edgePadding = 16.dp,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface,
-                        divider = {} // No divider for cleaner look
-                    ) {
-                        availableGroups.forEach { group ->
-                            Tab(
-                                selected = selectedGroupIndex == group,
-                                onClick = {
-                                    selectedGroupIndex = group
-                                    viewModel.selectGroup(group)
-                                },
-                                text = { Text(group) }
-                            )
-                        }
+                // 2. Main Sections Tabs (All / Favorites / Recent)
+                PrimaryTabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    indicator = {
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(selectedTabIndex),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    divider = {}
+                ) {
+                    val tabs = listOf("All Channels", "Favorites", "Recent")
+                    val icons = listOf(Icons.Rounded.Tv, Icons.Rounded.Favorite, Icons.Rounded.History)
+
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { Text(title, style = MaterialTheme.typography.labelLarge) },
+                            icon = { Icon(icons[index], null) },
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            FloatingActionButton(
                 onClick = { showImportDialog = true },
-                icon = { Icon(Icons.Default.Add, "Import") },
-                text = { Text("Playlist") }
-            )
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = RoundedCornerShape(12.dp) // Expressive Shape
+            ) {
+                Icon(Icons.Rounded.Add, "Import", modifier = Modifier.size(28.dp))
+            }
         }
     ) { padding ->
-        Box(modifier = Modifier
-            .fillMaxSize()
-            .padding(padding),contentAlignment = Alignment.Center) {
-            if (isLoading && scanProgress == null) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
-                val baseList = when (selectedTabIndex) {
-                    0 -> filteredChannels
-                    1 -> favoriteChannels
-                    else -> recentChannels
-                }
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
 
-                // Filter logic
-                val channelsToShow = if (searchQuery.isBlank()) baseList else baseList.filter {
-                    it.name.contains(searchQuery, ignoreCase = true)
+            // 3. Category Filter Chips (Only on "All" tab)
+            AnimatedVisibility(
+                visible = selectedTabIndex == 0 && !isSearching,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                ) {
+                    items(availableGroups) { group ->
+                        FilterChip(
+                            selected = selectedGroupIndex == group,
+                            onClick = {
+                                selectedGroupIndex = group
+                                viewModel.selectGroup(group)
+                            },
+                            label = { Text(group) },
+                            leadingIcon = if (selectedGroupIndex == group) {
+                                { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(16.dp)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                labelColor = MaterialTheme.colorScheme.onSurface,
+                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ),
+                            border = null,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
+            }
 
-                if (channelsToShow.isEmpty()) {
-                    EmptyStateMessage(selectedTabIndex)
+            // 4. Content List
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (isLoading && scanProgress == null) {
+                    CircularProgressIndicator()
                 } else {
-                    ChannelList(
-                        channels = channelsToShow,
-                        onToggleFavorite = { viewModel.toggleFavorite(it) },
-                        onChannelClick = { channel ->
-                            viewModel.markAsWatched(channel)
-                            onChannelClick(channel)
+                    val baseList = when (selectedTabIndex) {
+                        0 -> filteredChannels
+                        1 -> favoriteChannels
+                        else -> recentChannels
+                    }
+                    val channelsToShow = if (searchQuery.isBlank()) baseList else baseList.filter {
+                        it.name.contains(searchQuery, ignoreCase = true)
+                    }
+
+                    if (channelsToShow.isEmpty()) {
+                        EmptyStateMessage(selectedTabIndex)
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(items = channelsToShow, key = { it.id }) { channel ->
+                                ExpressiveChannelItem(
+                                    channel = channel,
+                                    onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                    onClick = {
+                                        viewModel.markAsWatched(channel)
+                                        onChannelClick(channel)
+                                    }
+                                )
+                            }
                         }
-                    )
+                    }
                 }
             }
         }
     }
 }
 
+// --- Expressive Components ---
+
+@Composable
+fun ExpressiveChannelItem(
+    channel: Channel,
+    onToggleFavorite: (Channel) -> Unit,
+    onClick: (Channel) -> Unit
+) {
+    Card(
+        onClick = { onClick(channel) },
+        shape = RoundedCornerShape(24.dp), // Expressive Corners
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier.fillMaxWidth().height(88.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 1. Logo Container
+            Surface(
+                modifier = Modifier.size(64.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.Black // Dark bg for logos
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(channel.logoUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(4.dp),
+                    error = rememberVectorPainter(Icons.Rounded.Tv),
+                    placeholder = rememberVectorPainter(Icons.Rounded.Tv)
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            // 2. Text Info
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = channel.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (channel.group.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    SuggestionChip(
+                        onClick = {},
+                        label = { Text(channel.group, style = MaterialTheme.typography.labelSmall) },
+                        colors = SuggestionChipDefaults.suggestionChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = null,
+                        modifier = Modifier.height(24.dp)
+                    )
+                }
+            }
+
+            // 3. Favorite Action
+            IconButton(
+                onClick = { onToggleFavorite(channel) },
+                colors = IconButtonDefaults.iconButtonColors(
+                    contentColor = if (channel.isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Icon(
+                    imageVector = if (channel.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    contentDescription = "Favorite"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchBar(query: String, onQueryChange: (String) -> Unit, onClose: () -> Unit) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text("Search channels...") },
+        leadingIcon = { Icon(Icons.Rounded.Search, null) },
+        trailingIcon = {
+            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, null) }
+        },
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent
+        ),
+        shape = RoundedCornerShape(50), // Pill Shape
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
+
+@Composable
+fun ExpressiveMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    viewModel: ChannelViewModel,
+    context: android.content.Context
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        DropdownMenuItem(
+            text = { Text("Clear History") },
+            onClick = { viewModel.clearHistory(); onDismiss() },
+            leadingIcon = { Icon(Icons.Rounded.History, null) }
+        )
+        DropdownMenuItem(
+            text = { Text("Clear Favorites") },
+            onClick = { viewModel.clearFavorites(); onDismiss() },
+            leadingIcon = { Icon(Icons.Rounded.FavoriteBorder, null) }
+        )
+        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+        DropdownMenuItem(
+            text = { Text("Delete All Channels") },
+            onClick = { viewModel.deleteAll(); onDismiss() },
+            leadingIcon = { Icon(Icons.Rounded.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+            colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error)
+        )
+        DropdownMenuItem(
+            text = { Text("Remove Dead Channels") },
+            onClick = {
+                viewModel.removeDeadChannels(context)
+                android.widget.Toast.makeText(context, "Scanning in background...", android.widget.Toast.LENGTH_SHORT).show()
+                onDismiss()
+            },
+            leadingIcon = { Icon(Icons.Rounded.PortableWifiOff, null, tint = MaterialTheme.colorScheme.error) },
+            colors = MenuDefaults.itemColors(textColor = MaterialTheme.colorScheme.error)
+        )
+    }
+}
+
+@Composable
+fun EmptyStateMessage(tabIndex: Int) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = if (tabIndex == 0) Icons.Rounded.TvOff else Icons.Rounded.Inbox,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.surfaceVariant
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = if (tabIndex == 0) "No channels found.\nTap + to add a playlist."
+            else "Nothing to see here yet.",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
+    }
+}
+
+// (ImportDialog function remains the same as before, no changes needed there)
 @Composable
 fun ImportDialog(
     onDismiss: () -> Unit,
@@ -239,33 +432,25 @@ fun ImportDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import Playlist") },
+        title = { Text("Add Playlist") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Enter M3U URL or select a file from device.")
-
                 OutlinedTextField(
                     value = urlText,
                     onValueChange = { urlText = it },
-                    label = { Text("Playlist URL") },
-                    placeholder = { Text("http://example.com/playlist.m3u") },
+                    label = { Text("M3U URL") },
+                    placeholder = { Text("http://...") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    trailingIcon = { Icon(Icons.Default.Link, null) }
+                    shape = RoundedCornerShape(12.dp)
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text("- OR -", style = MaterialTheme.typography.labelMedium)
-                }
-
-                OutlinedButton(
+                TextButton(
                     onClick = onFileSelect,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.textButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
                 ) {
-                    Icon(Icons.Default.FileOpen, null)
+                    Icon(Icons.Rounded.FolderOpen, null)
                     Spacer(Modifier.width(8.dp))
                     Text("Select File from Storage")
                 }
@@ -275,130 +460,8 @@ fun ImportDialog(
             Button(
                 onClick = { if (urlText.isNotBlank()) onUrlSubmit(urlText) },
                 enabled = urlText.isNotBlank()
-            ) {
-                Text("Import URL")
-            }
+            ) { Text("Import") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
-}
-
-@Composable
-fun ChannelList(channels: List<Channel>, onToggleFavorite: (Channel) -> Unit, onChannelClick: (Channel) -> Unit) {
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp), // Added padding for aesthetics
-        verticalArrangement = Arrangement.spacedBy(12.dp), // Space between items
-        modifier = Modifier.fillMaxSize()
-    ) {
-        items(items = channels, key = { it.id }) { channel ->
-            ChannelItem(channel, onToggleFavorite, onChannelClick)
-        }
-        // Spacer for FAB
-        item { Spacer(Modifier.height(80.dp)) }
-    }
-}
-
-@Composable
-fun ChannelItem(channel: Channel, onToggleFavorite: (Channel) -> Unit, onClick: (Channel) -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(90.dp) // Taller row
-            .clickable { onClick(channel) },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-    ) {
-        Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            // 1. Large "Poster" Image on Left
-            Card(
-                modifier = Modifier
-                    .width(100.dp)
-                    .fillMaxHeight()
-                    .padding(4.dp), // Small padding inside
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                SubcomposeAsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(channel.logoUrl)
-                        .decoderFactory(SvgDecoder.Factory())
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                    loading = {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        }
-                    },
-                    error = {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Tv, null, tint = Color.Gray)
-                        }
-                    }
-                )
-            }
-
-            // 2. Text Info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = channel.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold
-                )
-                if (channel.group.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = channel.group,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            // 3. Favorite Button
-            IconButton(onClick = { onToggleFavorite(channel) }) {
-                Icon(
-                    imageVector = if (channel.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = "Toggle Favorite",
-                    tint = if (channel.isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun EmptyStateMessage(tabIndex: Int) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                imageVector = if (tabIndex == 0) Icons.Default.Tv else Icons.Default.FavoriteBorder,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.outline
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = if (tabIndex == 0) "No channels found.\nAdd a playlist to start."
-                else "Your Watchlist is empty.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-        }
-    }
 }

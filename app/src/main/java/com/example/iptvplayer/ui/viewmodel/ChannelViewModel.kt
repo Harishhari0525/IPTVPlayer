@@ -20,13 +20,13 @@ import kotlinx.coroutines.launch
 class ChannelViewModel(private val repository: ChannelRepository) : ViewModel() {
 
     private val _allChannels: StateFlow<List<Channel>> = repository.allChannels
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val favorites: StateFlow<List<Channel>> = repository.favoriteChannels
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val recents: StateFlow<List<Channel>> = repository.recentChannels
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // 2. UI State for Filtering
     private val _selectedGroup = MutableStateFlow("All")
